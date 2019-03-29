@@ -1,9 +1,7 @@
 int main(void)
 {
-
   /* USER CODE BEGIN 1 */
-  unsigned char* frame_buffer = (unsigned char*)malloc(EPD_WIDTH * EPD_HEIGHT / 8);
-	char time_string[] = {'0', '0', ':', '0', '0', '\0'};
+
   /* USER CODE END 1 */
 
   /* MCU Configuration----------------------------------------------------------*/
@@ -24,91 +22,125 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART2_UART_Init();
+  MX_USART1_UART_Init();
   MX_SPI1_Init();
-  MX_ADC_Init();
+  /* USER CODE BEGIN 2 */	
+	
+	if(EPD_Init(lut_full_update) != 0) {
+        printf("e-Paper init failed\r\n");
+    }
+    EPD_Clear();
+    DEV_Delay_ms(500);
 
-  /* USER CODE BEGIN 2 */
-	EPD epd;
-  if (EPD_Init(&epd, lut_full_update) != 0) {
-    printf("e-Paper init failed\n");
-    return -1;
-  }
-  
-  Paint paint;
-  Paint_Init(&paint, frame_buffer, epd.width, epd.height);
-  Paint_Clear(&paint, UNCOLORED);
+    //Create a new image cache
+    UBYTE *BlackImage;		
+		/* you have to edit the startup_stm32fxxx.s file and set a big enough heap size */
+    UWORD Imagesize = ((EPD_WIDTH % 8 == 0)? (EPD_WIDTH / 8 ): (EPD_WIDTH / 8 + 1)) * EPD_HEIGHT;
+    if((BlackImage = (UBYTE *)malloc(Imagesize)) == NULL) {
+        printf("Failed to apply for black memory...\r\n");
+				return 0;
+    }
+    printf("Paint_NewImage\r\n");
+		
+    Paint_NewImage(BlackImage, EPD_WIDTH, EPD_HEIGHT, 270, WHITE);
+    Paint_SelectImage(BlackImage);
+    Paint_Clear(WHITE);
+		#if 1   //show image for array    
+    printf("show image for array\r\n");
+    Paint_SelectImage(BlackImage);
+    Paint_Clear(WHITE);
+    Paint_DrawBitMap(gImage_1in54);
+    
+    EPD_Display(BlackImage);
+    DEV_Delay_ms(2000);
+#endif
 
-  /* For simplicity, the arguments are explicit numerical coordinates */
-  /* Write strings to the buffer */
-  Paint_DrawFilledRectangle(&paint, 0, 6, 200, 26, COLORED);
-  Paint_DrawStringAt(&paint, 28, 10, "Hello world!", &Font16, UNCOLORED);
-  Paint_DrawStringAt(&paint, 30, 30, "e-Paper Demo", &Font16, COLORED);
+#if 1   // Drawing on the image
+    //1.Select Image
+    Paint_SelectImage(BlackImage);
+    Paint_Clear(WHITE);
 
-  /* Draw something to the frame buffer */
-  Paint_DrawRectangle(&paint, 10, 60, 50, 110, COLORED);
-  Paint_DrawLine(&paint, 10, 60, 50, 110, COLORED);
-  Paint_DrawLine(&paint, 50, 60, 10, 110, COLORED);
-  Paint_DrawCircle(&paint, 120, 80, 30, COLORED);
-  Paint_DrawFilledRectangle(&paint, 10, 130, 50, 180, COLORED);
-  Paint_DrawFilledCircle(&paint, 120, 150, 30, COLORED);
-  
-  /* Display the frame_buffer */
-  EPD_SetFrameMemory(&epd, frame_buffer, 0, 0, Paint_GetWidth(&paint), Paint_GetHeight(&paint));
-  EPD_DisplayFrame(&epd);
-  EPD_DelayMs(&epd, 2000);
+    // 2.Drawing on the image
+    Paint_DrawPoint(5, 10, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
+    Paint_DrawPoint(5, 25, BLACK, DOT_PIXEL_2X2, DOT_STYLE_DFT);
+    Paint_DrawPoint(5, 40, BLACK, DOT_PIXEL_3X3, DOT_STYLE_DFT);
+    Paint_DrawPoint(5, 55, BLACK, DOT_PIXEL_4X4, DOT_STYLE_DFT);
 
-  if (EPD_Init(&epd, lut_partial_update) != 0) {
-    printf("e-Paper init failed\n");
-    return -1;
-  }
-  /**
-    *  there are 2 memory areas embedded in the e-paper display
-    *  and once the display is refreshed, the memory area will be auto-toggled,
-    *  i.e. the next action of SetFrameMemory will set the other memory area
-    *  therefore you have to set the frame memory and refresh the display twice.
-    */
-  EPD_SetFrameMemory(&epd, MAIN_DATA, 0, 0, epd.width, epd.height);
-  EPD_DisplayFrame(&epd);
-  EPD_SetFrameMemory(&epd, MAIN_DATA, 0, 0, epd.width, epd.height);
-  EPD_DisplayFrame(&epd);
-  
-	EPD_SetFrameMemory(&epd, MAIN_DATA, 150, 150, epd.width, epd.height);
-  EPD_DisplayFrame(&epd);
-  EPD_SetFrameMemory(&epd, MAIN_DATA, 150, 150, epd.width, epd.height);
-  EPD_DisplayFrame(&epd);
+    Paint_DrawLine(20, 10, 70, 60, BLACK, LINE_STYLE_SOLID, DOT_PIXEL_1X1);
+    Paint_DrawLine(70, 10, 20, 60, BLACK, LINE_STYLE_SOLID, DOT_PIXEL_1X1);
+    Paint_DrawLine(170, 15, 170, 55, BLACK, LINE_STYLE_DOTTED, DOT_PIXEL_1X1);
+    Paint_DrawLine(150, 35, 190, 35, BLACK, LINE_STYLE_DOTTED, DOT_PIXEL_1X1);
+
+    Paint_DrawRectangle(20, 10, 70, 60, BLACK, DRAW_FILL_EMPTY, DOT_PIXEL_1X1);
+    Paint_DrawRectangle(85, 10, 130, 60, BLACK, DRAW_FILL_FULL, DOT_PIXEL_1X1);
+
+    Paint_DrawCircle(170, 35, 20, BLACK, DRAW_FILL_EMPTY, DOT_PIXEL_1X1);
+    Paint_DrawCircle(170, 85, 20, BLACK, DRAW_FILL_FULL, DOT_PIXEL_1X1);
+    Paint_DrawString_EN(5, 85, "waveshare", &Font20, BLACK, WHITE);
+    Paint_DrawNum(5, 110, 123456789, &Font20, BLACK, WHITE);
+
+    Paint_DrawString_CN(5, 135,"你好abc", &Font12CN, BLACK, WHITE);
+    Paint_DrawString_CN(5, 160, "微雪电子", &Font24CN, WHITE, BLACK);
+
+    EPD_Display(BlackImage);
+    DEV_Delay_ms(2000);
+#endif
+
+#if 1   //Partial refresh, example shows time    
+    if(EPD_Init(lut_partial_update) != 0) {
+        printf("e-Paper init failed\r\n");
+    }
+		Paint_SelectImage(BlackImage);
+    PAINT_TIME sPaint_time;
+    sPaint_time.Hour = 12;
+    sPaint_time.Min = 34;
+    sPaint_time.Sec = 56;
+    for (;;) {
+        sPaint_time.Sec = sPaint_time.Sec + 1;
+        if (sPaint_time.Sec == 60) {
+            sPaint_time.Min = sPaint_time.Min + 1;
+            sPaint_time.Sec = 0;
+            if (sPaint_time.Min == 60) {
+                sPaint_time.Hour =  sPaint_time.Hour + 1;
+                sPaint_time.Min = 0;
+                if (sPaint_time.Hour == 24) {
+                    sPaint_time.Hour = 0;
+                    sPaint_time.Min = 0;
+                    sPaint_time.Sec = 0;
+                }
+            }
+        }
+        Paint_ClearWindows(15, 65, 15 + Font20.Width * 7, 65 + Font20.Height, WHITE);
+        Paint_DrawTime(15, 65, &sPaint_time, &Font20, WHITE, BLACK);
+
+				EPD_Display(BlackImage);
+        DEV_Delay_ms(500);//Analog clock 1s
+    }
+
+#endif
+
+    printf("Goto Sleep mode...\r\n");
+    EPD_Sleep();
+    free(BlackImage);
+    BlackImage = NULL;
+		
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-    /*time_string[0] = time_now_s / 60 / 10 + '0';
-    time_string[1] = time_now_s / 60 % 10 + '0';
-    time_string[3] = time_now_s % 60 / 10 + '0';
-    time_string[4] = time_now_s % 60 % 10 + '0';
-    */
-		time_string[0] = '1';
-    time_string[1] = '2';
-    time_string[3] = '3';
-    time_string[4] = '4';
-    Paint_SetWidth(&paint, 32);
-    Paint_SetHeight(&paint, 96);
-    Paint_SetRotate(&paint, ROTATE_270);
 
-    Paint_Clear(&paint, UNCOLORED);
-    Paint_DrawStringAt(&paint, 0, 4, time_string, &Font24, COLORED);
-    EPD_SetFrameMemory(&epd, frame_buffer, 80, 72, Paint_GetWidth(&paint), Paint_GetHeight(&paint));
-    EPD_DisplayFrame(&epd);
-
-    EPD_DelayMs(&epd, 500);
   }
   /* USER CODE END 3 */
 
 }
 
-/** System Clock Configuration
-*/
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
